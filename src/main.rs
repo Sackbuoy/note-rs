@@ -3,6 +3,8 @@ use serde_yaml;
 use std::env;
 use std::process::Command;
 use std::fs;
+use std::fmt;
+use home;
 
 struct Config {
     notes_directory: Box<String>,
@@ -10,13 +12,29 @@ struct Config {
     config_file_path: Box<String>,
 }
 
+#[derive(Debug)]
+struct MyError(String);
+
+impl fmt::Display for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for MyError {}
+
 fn main() -> Result<(), Box<dyn Error>> {
     
-    let config: Config = match unmarshall_yaml("/Users/cameron.kientz/.note-rs/config.yaml") {
+    let config_file = match find_config() {
         Ok(value) => value,
         Err(e) => return Err(e),
     };
 
+    let config: Config = match unmarshall_yaml(&config_file) {
+        Ok(value) => value,
+        Err(e) => return Err(e),
+    };
+    
     // args array includes executable itself
     let args: Vec<String> = env::args().collect();
     return match args.len() {
@@ -27,18 +45,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 }
 
-fn _match_input(files: Vec<String>, input: String) -> Result<Vec<String>, Box<dyn Error>> {
-    let result: &mut Vec<String> = &mut Vec::new();
+fn find_config() -> Result<String, Box<dyn Error>> {
 
-    for file in files {
-        if file.starts_with(&input) {
-            result.push(file);
-        }
-    }
+    let home_path_buf = match home::home_dir() {
+        Some(pathbuf) => pathbuf,
+        None => return Err(Box::new(MyError("Could not get home directory".into()))),
+    };
 
-    Ok(result.to_vec())
+    let home = match home_path_buf.to_str() {
+        Some(path) => path,
+        None => return Err(Box::new(MyError("Could not get home directory".into()))),
+    };
+
+    let config_file = format!("{}/.note-rs/config.yaml", home);
+
+   Ok(String::from(config_file)) 
 }
-
 
 fn unmarshall_yaml(config_file_path: &str) -> Result<Config, Box<dyn Error>> {
     let config_file = match std::fs::File::open(config_file_path) {

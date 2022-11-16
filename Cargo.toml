@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 serde = "1.0"
 serde_yaml = "0.9"
+home = "0.5.4"
 
 [profile.release]
 opt-level = 3
