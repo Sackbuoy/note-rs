@@ -117,10 +117,25 @@ fn create_note(
     Ok(())
 }
 
+// top level search, this searches for a search term in all available notes
+// equivalent of cat/grep on the whole dir
 fn search(notes_dir: &String, search_item: &String) -> Result<(), Box<dyn Error>> {
-    let output = Command::new("rg").arg(search_item).arg(notes_dir).output()?;
+    // let output = Command::new("rg")
+    //     .arg(search_item)
+    //     .arg(notes_dir)
+    //     .output()?;
+    //
+    // println!("{}", String::from_utf8_lossy(&output.stdout));
+    let result: &mut Vec<String> = &mut Vec::new();
+    let paths = fs::read_dir(notes_dir)?;
 
-    println!("{}", String::from_utf8_lossy(&output.stdout));
+    for path in paths {}
+
+    Ok(())
+}
+
+// returns filename and line with search term
+fn search_file(path: &String, search_item: &String) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
@@ -128,7 +143,7 @@ fn list_notes(notes_dir: &String) -> Result<(), Box<dyn Error>> {
     let notes = get_notes(notes_dir)?;
 
     for note in notes {
-        print!("{}   ", note);
+        println!("{}   ", note);
     }
 
     Ok(())
@@ -150,7 +165,9 @@ fn help() -> Result<(), Box<dyn Error>> {
     println!("Usage: note <name>: Create a new note in notes directory with name <name>");
     println!("  OR  ");
     println!("note <command> where <command> is one of:");
-    println!("  list: list all existing notes in directory");
+    println!(
+        "  list: list all existing notes in directory on separate lines (solely for grep purposes)"
+    );
     println!("  search <value>: search contents of all notes for <value>, including filenames");
     println!("  config: edit config");
 
