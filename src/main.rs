@@ -4,6 +4,8 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
+use std::io::{BufRead, BufReader};
+use std::path::Path;
 use std::process::Command;
 
 struct Config {
@@ -88,13 +90,21 @@ fn match_singleton_command(arg: &str, config: &Config) -> Result<(), Box<dyn Err
 }
 
 fn match_complex_command(args: &Vec<String>, config: &Config) -> Result<(), Box<dyn Error>> {
-    let search_term: &String = &String::from(&args[2]);
     let command: &str = &args[1][..];
 
     return match command {
-        "search" => search(&config.notes_directory, search_term),
+        "search" => search(&config.notes_directory, &String::from(&args[2])),
+        "delete" => delete(&config.notes_directory, &String::from(&args[2])),
         _ => help(),
     };
+}
+
+fn delete(notes_dir: &String, file_name: &String) -> Result<(), Box<dyn Error>> {
+    let file_with_ext = format!("{}{}", &file_name, ".md");
+    let file_path = Path::new(notes_dir).join(file_with_ext);
+    fs::remove_file(&file_path)?;
+    println!("{} deleted", file_path.display());
+    Ok(())
 }
 
 fn edit_config(config_file_path: &String, editor_command: &String) -> Result<(), Box<dyn Error>> {
@@ -120,23 +130,72 @@ fn create_note(
 // top level search, this searches for a search term in all available notes
 // equivalent of cat/grep on the whole dir
 fn search(notes_dir: &String, search_item: &String) -> Result<(), Box<dyn Error>> {
-    // let output = Command::new("rg")
-    //     .arg(search_item)
-    //     .arg(notes_dir)
-    //     .output()?;
-    //
-    // println!("{}", String::from_utf8_lossy(&output.stdout));
-    let result: &mut Vec<String> = &mut Vec::new();
+    let results: &mut Vec<FileSearchMatches> = &mut Vec::new();
     let paths = fs::read_dir(notes_dir)?;
 
-    for path in paths {}
+    for path in paths {
+        let dir_entry = path?;
+        let path_string = dir_entry.path().into_os_string().into_string();
+        match path_string {
+            Ok(file_path) => {
+                let search_result = search_file(&file_path, search_item)?;
+                if search_result.matching_lines.len() <= 0 {
+                    continue;
+                } else {
+                    results.push(search_result);
+                }
+            }
+            Err(e) => {
+                return Err(Box::new(MyError(format!(
+                    "Failed to convert OsStr to String on item: {:?}",
+                    e,
+                ))))
+            }
+        }
+    }
+
+    if results.len() <= 0 {
+        return Ok(());
+    }
+
+    for result in results {
+        println!("{}", result.file_path);
+        for line in &result.matching_lines {
+            println!("{}", line);
+        }
+    }
 
     Ok(())
 }
 
+#[derive(Debug)]
+struct FileSearchMatches {
+    file_path: Box<String>,
+    matching_lines: Vec<String>,
+}
+
 // returns filename and line with search term
-fn search_file(path: &String, search_item: &String) -> Result<(), Box<dyn Error>> {
-    Ok(())
+// returns Result(FileSearchMatches, Error)
+fn search_file(path: &String, search_item: &String) -> Result<FileSearchMatches, Box<dyn Error>> {
+    let mut result = FileSearchMatches {
+        file_path: Box::new(path.to_string()),
+        matching_lines: Vec::new(),
+    };
+    let file = fs::File::open(path).expect("File not found");
+    let buf_reader = BufReader::new(file);
+
+    for line_result in buf_reader.lines() {
+        match line_result {
+            Ok(line) => {
+                if line.contains(search_item) {
+                    result.matching_lines.push(line);
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    Ok(result)
 }
 
 fn list_notes(notes_dir: &String) -> Result<(), Box<dyn Error>> {
@@ -170,6 +229,7 @@ fn help() -> Result<(), Box<dyn Error>> {
     );
     println!("  search <value>: search contents of all notes for <value>, including filenames");
     println!("  config: edit config");
+    println!("  delete: delete a note");
 
     Ok(())
 }
