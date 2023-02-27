@@ -4,7 +4,10 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{
+    BufRead,
+    BufReader,
+};
 use std::path::Path;
 use std::process::Command;
 
@@ -12,6 +15,7 @@ struct Config {
     notes_directory: Box<String>,
     editor_command: Box<String>,
     config_file_path: Box<String>,
+    extension: Box<String>,
 }
 
 #[derive(Debug)]
@@ -71,6 +75,10 @@ fn unmarshall_yaml(config_file_path: &str) -> Result<Config, Box<dyn Error>> {
             None => Box::new(String::new()),
         },
         config_file_path: Box::new(String::from(config_file_path)),
+        extension: match config_yaml["extension"].as_str() {
+            Some(value) => Box::new(value.to_owned()),
+            None => Box::new(String::from(".md")), // default to markdown
+        },
     };
 
     Ok(config)
@@ -81,11 +89,16 @@ fn match_singleton_command(arg: &str, config: &Config) -> Result<(), Box<dyn Err
         "help" => help(),
         "list" => list_notes(&config.notes_directory),
         "config" => edit_config(&config.config_file_path, &config.editor_command),
-        _ => create_note(
-            &config.notes_directory,
-            &config.editor_command,
-            &String::from(arg),
-        ),
+        _ => {
+            let arg_string = String::from(arg);
+            let file_name = if arg_string.contains(config.extension.as_str()) {
+                arg_string
+            } else {
+                format!("{}{}", &arg_string, &config.extension)
+            };
+
+            create_or_find_note(&config.notes_directory, &config.editor_command, &file_name)
+        }
     };
 }
 
@@ -94,14 +107,16 @@ fn match_complex_command(args: &Vec<String>, config: &Config) -> Result<(), Box<
 
     return match command {
         "search" => search(&config.notes_directory, &String::from(&args[2])),
-        "delete" => delete(&config.notes_directory, &String::from(&args[2])),
+        "delete" => delete(
+            &config.notes_directory,
+            &format!("{}{}", &String::from(&args[2]), &config.extension),
+        ),
         _ => help(),
     };
 }
 
 fn delete(notes_dir: &String, file_name: &String) -> Result<(), Box<dyn Error>> {
-    let file_with_ext = format!("{}{}", &file_name, ".md");
-    let file_path = Path::new(notes_dir).join(file_with_ext);
+    let file_path = Path::new(notes_dir).join(file_name);
     fs::remove_file(&file_path)?;
     println!("{} deleted", file_path.display());
     Ok(())
@@ -116,12 +131,12 @@ fn edit_config(config_file_path: &String, editor_command: &String) -> Result<(),
     Ok(())
 }
 
-fn create_note(
+fn create_or_find_note(
     notes_dir: &String,
     editor_command: &String,
     file_name: &String,
 ) -> Result<(), Box<dyn Error>> {
-    let file_path = format!("{}/{}.md", notes_dir, file_name);
+    let file_path = Path::new(notes_dir).join(file_name);
     let _output = Command::new(editor_command).arg(file_path).spawn()?.wait();
 
     Ok(())
