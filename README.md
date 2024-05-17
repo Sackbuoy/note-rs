@@ -19,3 +19,4 @@ function _note() {
 3. reload your shell and it should work
 
 itd be cool if i could note hardcode that path lol but the config directory won't always be the same so i cant always pull from there. maybe and env var or something. great problem for future me
+changes
