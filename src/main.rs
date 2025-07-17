@@ -1,5 +1,3 @@
-use home;
-use serde_yaml;
 use std::env;
 use std::error::Error;
 use std::fmt;
@@ -12,10 +10,10 @@ use std::path::Path;
 use std::process::Command;
 
 struct Config {
-    notes_directory: Box<String>,
-    editor_command: Box<String>,
-    config_file_path: Box<String>,
-    extension: Box<String>,
+    notes_directory: String,
+    editor_command: String,
+    config_file_path: String,
+    extension: String,
 }
 
 #[derive(Debug)]
@@ -36,12 +34,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // args array includes executable itself
     let args: Vec<String> = env::args().collect();
-    return match args.len() {
+    match args.len() {
         1 => help(), // good
         2 => match_singleton_command(&args[1], &config),
         3 => match_complex_command(&args, &config),
         _ => help(),
-    };
+    }
 }
 
 fn find_config() -> Result<String, Box<dyn Error>> {
@@ -57,7 +55,7 @@ fn find_config() -> Result<String, Box<dyn Error>> {
 
     let config_file = format!("{}/.note-rs/config.yaml", home);
 
-    Ok(String::from(config_file))
+    Ok(config_file)
 }
 
 fn unmarshall_yaml(config_file_path: &str) -> Result<Config, Box<dyn Error>> {
@@ -67,17 +65,17 @@ fn unmarshall_yaml(config_file_path: &str) -> Result<Config, Box<dyn Error>> {
 
     let config = Config {
         notes_directory: match config_yaml["notes_directory"].as_str() {
-            Some(value) => Box::new(value.to_owned()),
-            None => Box::new(String::new()),
+            Some(value) => value.to_owned(),
+            None => String::new(),
         },
         editor_command: match config_yaml["editor_command"].as_str() {
-            Some(value) => Box::new(value.to_owned()),
-            None => Box::new(String::new()),
+            Some(value) => value.to_owned(),
+            None => String::new(),
         },
-        config_file_path: Box::new(String::from(config_file_path)),
+        config_file_path: String::from(config_file_path),
         extension: match config_yaml["extension"].as_str() {
-            Some(value) => Box::new(value.to_owned()),
-            None => Box::new(String::from(".md")), // default to markdown
+            Some(value) => value.to_owned(),
+            None => String::from(".md"), // default to markdown
         },
     };
 
@@ -85,7 +83,7 @@ fn unmarshall_yaml(config_file_path: &str) -> Result<Config, Box<dyn Error>> {
 }
 
 fn match_singleton_command(arg: &str, config: &Config) -> Result<(), Box<dyn Error>> {
-    return match arg {
+    match arg {
         "help" => help(),
         "list" => list_notes(&config.notes_directory),
         "config" => edit_config(&config.config_file_path, &config.editor_command),
@@ -99,20 +97,20 @@ fn match_singleton_command(arg: &str, config: &Config) -> Result<(), Box<dyn Err
 
             create_or_find_note(&config.notes_directory, &config.editor_command, &file_name)
         }
-    };
+    }
 }
 
-fn match_complex_command(args: &Vec<String>, config: &Config) -> Result<(), Box<dyn Error>> {
+fn match_complex_command(args: &[String], config: &Config) -> Result<(), Box<dyn Error>> {
     let command: &str = &args[1][..];
 
-    return match command {
+    match command {
         "search" => search(&config.notes_directory, &String::from(&args[2])),
         "delete" => delete(
             &config.notes_directory,
             &format!("{}{}", &String::from(&args[2]), &config.extension),
         ),
         _ => help(),
-    };
+    }
 }
 
 fn delete(notes_dir: &String, file_name: &String) -> Result<(), Box<dyn Error>> {
@@ -154,7 +152,7 @@ fn search(notes_dir: &String, search_item: &String) -> Result<(), Box<dyn Error>
         match path_string {
             Ok(file_path) => {
                 let search_result = search_file(&file_path, search_item)?;
-                if search_result.matching_lines.len() <= 0 {
+                if search_result.matching_lines.is_empty() {
                     continue;
                 } else {
                     results.push(search_result);
@@ -169,7 +167,7 @@ fn search(notes_dir: &String, search_item: &String) -> Result<(), Box<dyn Error>
         }
     }
 
-    if results.len() <= 0 {
+    if results.is_empty() {
         return Ok(());
     }
 
@@ -185,7 +183,7 @@ fn search(notes_dir: &String, search_item: &String) -> Result<(), Box<dyn Error>
 
 #[derive(Debug)]
 struct FileSearchMatches {
-    file_path: Box<String>,
+    file_path: String,
     matching_lines: Vec<String>,
 }
 
@@ -193,7 +191,7 @@ struct FileSearchMatches {
 // returns Result(FileSearchMatches, Error)
 fn search_file(path: &String, search_item: &String) -> Result<FileSearchMatches, Box<dyn Error>> {
     let mut result = FileSearchMatches {
-        file_path: Box::new(path.to_string()),
+        file_path: path.to_string(),
         matching_lines: Vec::new(),
     };
     let file = fs::File::open(path).expect("File not found");
@@ -213,7 +211,7 @@ fn search_file(path: &String, search_item: &String) -> Result<FileSearchMatches,
     Ok(result)
 }
 
-fn list_notes(notes_dir: &String) -> Result<(), Box<dyn Error>> {
+fn list_notes(notes_dir: &str) -> Result<(), Box<dyn Error>> {
     let notes = get_notes(notes_dir)?;
 
     for note in notes {

@@ -1,33 +1,34 @@
 {
-  description = "Rust Flake";
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
+ description = "Rust Flake";
+ inputs = {
+   nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+ };
 
-  outputs = { self, nixpkgs, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-    let
-      pkgs = nixpkgs.legacyPackages.${system};
-      manifest = (nixpkgs.lib.importTOML ./Cargo.toml).package;
-    in {
-    defaultPackage = pkgs.rustPlatform.buildRustPackage rec {
-      pname = manifest.name;
-      version = manifest.version;
-      cargoLock.lockFile = ./Cargo.lock;
-      src = pkgs.lib.cleanSource ./.;
-    };
+ outputs = { self, nixpkgs, flake-utils, ... }:
+   let
+     system = "x86_64-linux";
+     pkgs = nixpkgs.legacyPackages.${system};
+     manifest = (nixpkgs.lib.importTOML ./Cargo.toml).package;
+   in {
+   defaultPackage.${system} = pkgs.rustPlatform.buildRustPackage rec {
+     pname = manifest.name;
+     version = manifest.version;
+     cargoLock.lockFile = ./Cargo.lock;
+     src = pkgs.lib.cleanSource ./.;
+   };
 
-    devShell = pkgs.mkShell { 
-      buildInputs =
-      [
-        pkgs.rust-analyzer # LSP Server
-        pkgs.rustfmt       # Formatter
-        pkgs.clippy        # Linter
-      ];
-      shellHook = ''
-        echo "Loaded Dev Environment"
-      '';
-    };
-  });
+   devShell.${system} = pkgs.mkShell { 
+     buildInputs = [
+       pkgs.rustup
+     ];
+     shellHook = ''
+       echo "Loaded Dev Environment"
+       export RUSTUP_HOME="$PWD/.rustup"
+       export CARGO_HOME="$PWD/.cargo"
+       rustup toolchain install 1.83.0
+       rustup default 1.83.0
+       rustup component add rust-analyzer rustfmt clippy
+     '';
+   };
+ };
 }
