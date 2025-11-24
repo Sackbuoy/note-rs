@@ -222,12 +222,26 @@ fn list_notes(notes_dir: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn get_notes(notes_dir: &str) -> Result<Vec<String>, Box<dyn Error>> {
-    let files = fs::read_dir(notes_dir).unwrap();
+    let files: fs::ReadDir = match fs::read_dir(notes_dir) {
+        Ok(val) => val,
+        Err(e) => return Err(Box::new(e)),
+    };
     let result: &mut Vec<String> = &mut Vec::new();
 
     for file in files {
-        let file_name: String = file.unwrap().file_name().into_string().unwrap();
-        result.push(file_name);
+        let file_name = match file {
+            Ok(val) => val.file_name(),
+            Err(e) => return Err(Box::new(e)),
+        };
+        match file_name.into_string() {
+            Ok(str_val) => result.push(str_val),
+            Err(os_str_val) => {
+                return Err(Box::new(MyError(format!(
+                    "Failed to convert OsStr to String on item: {:?}",
+                    os_str_val,
+                ))))
+            }
+        }
     }
 
     Ok(result.to_vec())
