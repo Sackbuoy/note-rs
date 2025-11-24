@@ -1,6 +1,5 @@
 use std::env;
 use std::error::Error;
-use std::fmt;
 use std::fs;
 use std::io::{
     BufRead,
@@ -16,21 +15,17 @@ struct Config {
     extension: String,
 }
 
-#[derive(Debug)]
-struct MyError(String);
-
-impl fmt::Display for MyError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl Error for MyError {}
-
 fn main() -> Result<(), Box<dyn Error>> {
-    let config_file = find_config()?;
+    // let config_file = find_config()?;
+    let config_file = env::var("NOTES_CONFIG")?;
 
-    let config: Config = unmarshall_yaml(&config_file)?;
+    let config: Config = match unmarshall_yaml(&config_file) {
+        Ok(val) => val,
+        Err(e) => {
+            println!("{}", e);
+            std::process::exit(1);
+        }
+    };
 
     // args array includes executable itself
     let args: Vec<String> = env::args().collect();
@@ -42,24 +37,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn find_config() -> Result<String, Box<dyn Error>> {
-    let home_path_buf = match home::home_dir() {
-        Some(pathbuf) => pathbuf,
-        None => return Err(Box::new(MyError("Could not get home directory".into()))),
-    };
-
-    let home = match home_path_buf.to_str() {
-        Some(path) => path,
-        None => return Err(Box::new(MyError("Could not get home directory".into()))),
-    };
-
-    let config_file = format!("{}/.note-rs/config.yaml", home);
-
-    Ok(config_file)
-}
-
 fn unmarshall_yaml(config_file_path: &str) -> Result<Config, Box<dyn Error>> {
-    let config_file = std::fs::File::open(config_file_path)?;
+    let config_file = match std::fs::File::open(config_file_path) {
+        Ok(val) => val,
+        Err(e) => {
+            return Err(
+                format!("Could not open config directory: {config_file_path}\nError: {e}",).into(),
+            )
+        }
+    };
 
     let config_yaml: serde_yaml::Value = serde_yaml::from_reader(config_file)?;
 
@@ -159,10 +145,7 @@ fn search(notes_dir: &String, search_item: &String) -> Result<(), Box<dyn Error>
                 }
             }
             Err(e) => {
-                return Err(Box::new(MyError(format!(
-                    "Failed to convert OsStr to String on item: {:?}",
-                    e,
-                ))))
+                return Err(format!("Failed to convert OsStr to String on item: {:?}", e,).into())
             }
         }
     }
@@ -236,10 +219,11 @@ fn get_notes(notes_dir: &str) -> Result<Vec<String>, Box<dyn Error>> {
         match file_name.into_string() {
             Ok(str_val) => result.push(str_val),
             Err(os_str_val) => {
-                return Err(Box::new(MyError(format!(
+                return Err(format!(
                     "Failed to convert OsStr to String on item: {:?}",
                     os_str_val,
-                ))))
+                )
+                .into())
             }
         }
     }

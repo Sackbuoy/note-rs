@@ -42,5 +42,18 @@
         '';
       };
     });
+
+    apps = forAllSystems (system: let
+      pkgs = pkgsFor system;
+    in {
+      default = {
+        type = "app";
+        program = toString (pkgs.writeShellScript "run" ''
+          export RUSTUP_HOME="$PWD/.rustup"
+          export CARGO_HOME="$PWD/.cargo"
+          ${pkgs.cargo}/bin/cargo run "$@"
+        '');
+      };
+    });
   };
 }

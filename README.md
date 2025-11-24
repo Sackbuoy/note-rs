@@ -30,6 +30,7 @@ itd be cool if i could note hardcode that path lol but the config directory won'
 1. `nix build` -> consults `default.nix` to build the cargo package
     - this creates the binary in `./result/bin/note`
 2. `nix develop` -> consults `shell.nix` to create a dev environment
+3. `nix run` -> runs `cargo run`, you can add args like so `nix run . -- arg1 arg2`
 
 # example configuration file:
 ```
